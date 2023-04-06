@@ -1,3 +1,24 @@
+#[cfg(not(feature = "use-glsl-shader"))]
+pub mod vs {
+	vulkano_shaders::shader! {
+        ty: "vertex",
+        bytes: "../target/spirv-builder/spirv-unknown-spv1.3/release/deps/example_shader.spvs/image_shader-image_vs.spv",
+    }
+
+	pub const ENTRY_POINT: &str = "image_shader::image_vs";
+}
+
+#[cfg(not(feature = "use-glsl-shader"))]
+pub mod fs {
+	vulkano_shaders::shader! {
+        ty: "fragment",
+        bytes: "../target/spirv-builder/spirv-unknown-spv1.3/release/deps/example_shader.spvs/image_shader-image_fs.spv",
+    }
+
+	pub const ENTRY_POINT: &str = "image_shader::image_fs";
+}
+
+#[cfg(feature = "use-glsl-shader")]
 pub mod vs {
 	vulkano_shaders::shader! {
         ty: "vertex",
@@ -17,6 +38,7 @@ pub mod vs {
 	pub const ENTRY_POINT: &str = "main";
 }
 
+#[cfg(feature = "use-glsl-shader")]
 pub mod fs {
 	vulkano_shaders::shader! {
         ty: "fragment",

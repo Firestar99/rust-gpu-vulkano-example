@@ -5,7 +5,13 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["use-installed-tools"]
+use-installed-tools = ["spirv-builder/use-installed-tools"]
+use-compiled-tools = ["spirv-builder/use-compiled-tools"]
+
+# use this to switch back to glsl shaders
+use-glsl-shader = []
 
 [dependencies]
 vulkano = "0.33"
@@ -14,3 +20,6 @@ winit = "0.28"
 vulkano-win = "0.33"
 bytemuck = { version = "1.7", features = ["derive", "extern_crate_std", "min_const_generics"] }
 png = "0.17"
+
+[build-dependencies]
+spirv-builder = { version = "0.6.1", default-features = false }

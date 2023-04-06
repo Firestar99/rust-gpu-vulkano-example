@@ -1,7 +1,11 @@
 [workspace]
 members = [
     "example",
+    "example-shader",
 ]
+# required by rust-gpu to prevent too agressive feature merging
+# resolver needs to be manually set to "2" in virtual manifests and cannot be derived from workspace.edition = "2021"
+resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
@@ -9,3 +13,19 @@ edition = "2021"
 # same as vulkano
 license = "MIT/Apache-2.0"
 repository = "https://github.com/Firestar99/rust-gpu-vulkano-example"
+
+# Following is copied from rust-gpu workspace cargo.toml and are largely build time optimizations
+# Enable incremental by default in release mode.
+[profile.release]
+incremental = true
+# HACK(eddyb) this is the default but without explicitly specifying it, Cargo
+# will treat the identical settings in `[profile.release.build-override]` below
+# as different sets of `rustc` flags and will not reuse artifacts between them.
+codegen-units = 256
+
+# Compile build-dependencies in release mode with the same settings
+# as regular dependencies (including the incremental enabled above).
+[profile.release.build-override]
+opt-level = 3
+incremental = true
+codegen-units = 256
