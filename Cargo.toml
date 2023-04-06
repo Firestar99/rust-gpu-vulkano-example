@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "example",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+# same as vulkano
+license = "MIT/Apache-2.0"
+repository = "https://github.com/Firestar99/rust-gpu-vulkano-example"
