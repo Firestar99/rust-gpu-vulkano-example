@@ -53,6 +53,8 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+pub mod shaders;
+
 fn main() {
     // The start of this example is exactly the same as `triangle`. You should read the `triangle`
     // example if you haven't done so yet.
@@ -192,8 +194,8 @@ fn main() {
     )
     .unwrap();
 
-    let vs = vs::load(device.clone()).unwrap();
-    let fs = fs::load(device.clone()).unwrap();
+    let vs = shaders::vs::load(device.clone()).unwrap();
+    let fs = shaders::fs::load(device.clone()).unwrap();
 
     let render_pass = vulkano::single_pass_renderpass!(
         device.clone(),
@@ -263,10 +265,10 @@ fn main() {
     let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
     let pipeline = GraphicsPipeline::start()
         .vertex_input_state(Vertex::per_vertex())
-        .vertex_shader(vs.entry_point("main").unwrap(), ())
+        .vertex_shader(vs.entry_point(shaders::vs::ENTRY_POINT).unwrap(), ())
         .input_assembly_state(InputAssemblyState::new().topology(PrimitiveTopology::TriangleStrip))
         .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-        .fragment_shader(fs.entry_point("main").unwrap(), ())
+        .fragment_shader(fs.entry_point(shaders::fs::ENTRY_POINT).unwrap(), ())
         .color_blend_state(ColorBlendState::new(subpass.num_color_attachments()).blend_alpha())
         .render_pass(subpass)
         .build(device.clone())
@@ -434,39 +436,4 @@ fn window_size_dependent_setup(
             .unwrap()
         })
         .collect::<Vec<_>>()
-}
-
-mod vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: r"
-            #version 450
-
-            layout(location = 0) in vec2 position;
-            layout(location = 0) out vec2 tex_coords;
-
-            void main() {
-                gl_Position = vec4(position, 0.0, 1.0);
-                tex_coords = position + vec2(0.5);
-            }
-        ",
-    }
-}
-
-mod fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: r"
-            #version 450
-
-            layout(location = 0) in vec2 tex_coords;
-            layout(location = 0) out vec4 f_color;
-
-            layout(set = 0, binding = 0) uniform sampler2D tex;
-
-            void main() {
-                f_color = texture(tex, tex_coords);
-            }
-        ",
-    }
 }
