@@ -14,6 +14,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 		.print_metadata(MetadataPrintout::None)
 		.build()?;
 
+	let out_dir = env::var("OUT_DIR").unwrap();
+	let shader_out_dir = format!("{out_dir}/../../../../spirv-builder/spirv-unknown-spv1.3/release/deps/example_shader.spvs/");
+	println!("cargo:rustc-env=SHADER_OUT_DIR={shader_out_dir}");
+
 	let paths = result.module.unwrap_multi().iter()
 		.map(|x| format!("{}: {}", x.0, x.1.to_str().unwrap()))
 		.collect::<Vec<String>>().join("\n");

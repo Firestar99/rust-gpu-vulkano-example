@@ -1,10 +1,10 @@
 #[cfg(not(feature = "use-glsl-shader"))]
 pub mod vs {
 	vulkano_shaders::shader! {
-        ty: "vertex",
-		root_path_env: "OUT_DIR",
-        bytes: "../../../../spirv-builder/spirv-unknown-spv1.3/release/deps/example_shader.spvs/image_shader-image_vs.spv",
-    }
+		ty: "vertex",
+		root_path_env: "SHADER_OUT_DIR",
+		bytes: "image_shader-image_vs.spv",
+	}
 
 	pub const ENTRY_POINT: &str = "image_shader::image_vs";
 }
@@ -13,8 +13,8 @@ pub mod vs {
 pub mod fs {
 	vulkano_shaders::shader! {
         ty: "fragment",
-		root_path_env: "OUT_DIR",
-        bytes: "../../../../spirv-builder/spirv-unknown-spv1.3/release/deps/example_shader.spvs/image_shader-image_fs.spv",
+		root_path_env: "SHADER_OUT_DIR",
+        bytes: "image_shader-image_fs.spv",
     }
 
 	pub const ENTRY_POINT: &str = "image_shader::image_fs";
