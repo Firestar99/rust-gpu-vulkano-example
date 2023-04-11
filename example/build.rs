@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 	let paths = result.module.unwrap_multi().iter()
 		.map(|x| format!("{}: {}", x.0, x.1.to_str().unwrap()))
 		.collect::<Vec<String>>().join("\n");
+	println!("OUT_DIR: {}", env::var("OUT_DIR").unwrap());
 	println!("paths:\n{}", paths);
 	println!("entry points: {}", result.codegen_entry_point_strings());
 

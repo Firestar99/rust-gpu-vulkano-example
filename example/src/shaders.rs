@@ -2,7 +2,8 @@
 pub mod vs {
 	vulkano_shaders::shader! {
         ty: "vertex",
-        bytes: "../target/spirv-builder/spirv-unknown-spv1.3/release/deps/example_shader.spvs/image_shader-image_vs.spv",
+		root_path_env: "OUT_DIR",
+        bytes: "../../../../spirv-builder/spirv-unknown-spv1.3/release/deps/example_shader.spvs/image_shader-image_vs.spv",
     }
 
 	pub const ENTRY_POINT: &str = "image_shader::image_vs";
@@ -12,7 +13,8 @@ pub mod vs {
 pub mod fs {
 	vulkano_shaders::shader! {
         ty: "fragment",
-        bytes: "../target/spirv-builder/spirv-unknown-spv1.3/release/deps/example_shader.spvs/image_shader-image_fs.spv",
+		root_path_env: "OUT_DIR",
+        bytes: "../../../../spirv-builder/spirv-unknown-spv1.3/release/deps/example_shader.spvs/image_shader-image_fs.spv",
     }
 
 	pub const ENTRY_POINT: &str = "image_shader::image_fs";
