@@ -18,11 +18,5 @@ pub fn image_fs(
 	#[spirv(descriptor_set = 0, binding = 0)] image: &SampledImage<Image!(2D, type=f32, sampled)>,
 	f_color: &mut Vec4,
 ) {
-	// IGNORE THIS UNSAFE
-	// SampledImage's sample functions being marked as unsafe are accidental
-	// leftovers that will be removed in some upcoming release, see PR
-	// https://github.com/EmbarkStudios/rust-gpu/pull/1029
-	*f_color = unsafe {
-		image.sample(tex_coord)
-	};
+	*f_color = image.sample(tex_coord);
 }
