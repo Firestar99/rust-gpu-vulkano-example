@@ -46,6 +46,7 @@ use vulkano::{
     sync::{self, FlushError, GpuFuture},
     VulkanLibrary,
 };
+use vulkano::device::Features;
 use vulkano_win::VkSurfaceBuild;
 use winit::{
     event::{Event, WindowEvent},
@@ -114,6 +115,12 @@ fn main() {
         physical_device,
         DeviceCreateInfo {
             enabled_extensions: device_extensions,
+            // rust-gpu currently implicitly enables vulkan_memory_model in shaders, requiring us to enable this feature
+            // not a big deal as any Vulkan 1.3 implementation is required to have this feature
+            enabled_features: Features {
+                vulkan_memory_model: true,
+                ..Default::default()
+            },
             queue_create_infos: vec![QueueCreateInfo {
                 queue_family_index,
                 ..Default::default()

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use spirv_builder::{MetadataPrintout, SpirvBuilder, SpirvMetadata};
 
-const TARGET: &str = "spirv-unknown-spv1.3";
+const TARGET: &str = "spirv-unknown-vulkan1.2";
 const SHADER_PATH: &str = "example-shader";
 
 fn main() -> Result<(), Box<dyn Error>> {
