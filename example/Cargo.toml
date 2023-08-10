@@ -25,4 +25,4 @@ bytemuck = { version = "1.7", features = ["derive", "extern_crate_std", "min_con
 png = "0.17"
 
 [build-dependencies]
-spirv-builder = { version = "0.7", default-features = false }
+spirv-builder = { version = "0.9", default-features = false }

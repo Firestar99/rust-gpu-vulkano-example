@@ -9,4 +9,4 @@ repository.workspace = true
 crate-type = ["dylib"]
 
 [dependencies]
-spirv-std = "0.7"
+spirv-std = "0.9"
