@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 	// create SHADER_OUT_DIR env var to be read by vulkano shader macro
 	let out_dir = env::var("OUT_DIR").unwrap();
-	let shader_path_folder = SHADER_PATH.replace("-", "_");
+	let shader_path_folder = SHADER_PATH.replace('-', "_");
 	let shader_out_dir = format!("{out_dir}/../../../../spirv-builder/{TARGET}/release/deps/{shader_path_folder}.spvs/");
 	println!("cargo:rustc-env=SHADER_OUT_DIR={shader_out_dir}");
 
