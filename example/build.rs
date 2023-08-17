@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 		.multimodule(true)
 		// this needs at least NameVariables for vulkano to like the spv, but may also be Full
 		.spirv_metadata(SpirvMetadata::NameVariables)
-		.print_metadata(MetadataPrintout::None)
+		.print_metadata(MetadataPrintout::DependencyOnly)
 		.build()?;
 
 	// create SHADER_OUT_DIR env var to be read by vulkano shader macro
