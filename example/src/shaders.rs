@@ -1,28 +1,28 @@
 #[cfg(not(feature = "use-glsl-shader"))]
 pub mod vs {
-	vulkano_shaders::shader! {
-		ty: "vertex",
-		root_path_env: "SHADER_OUT_DIR",
-		bytes: "image_shader-image_vs.spv",
-	}
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        root_path_env: "SHADER_OUT_DIR",
+        bytes: "image_shader-image_vs.spv",
+    }
 
-	pub const ENTRY_POINT: &str = "image_shader::image_vs";
+    pub const ENTRY_POINT: &str = "image_shader::image_vs";
 }
 
 #[cfg(not(feature = "use-glsl-shader"))]
 pub mod fs {
-	vulkano_shaders::shader! {
+    vulkano_shaders::shader! {
         ty: "fragment",
-		root_path_env: "SHADER_OUT_DIR",
+        root_path_env: "SHADER_OUT_DIR",
         bytes: "image_shader-image_fs.spv",
     }
 
-	pub const ENTRY_POINT: &str = "image_shader::image_fs";
+    pub const ENTRY_POINT: &str = "image_shader::image_fs";
 }
 
 #[cfg(feature = "use-glsl-shader")]
 pub mod vs {
-	vulkano_shaders::shader! {
+    vulkano_shaders::shader! {
         ty: "vertex",
         src: r"
             #version 450
@@ -37,12 +37,12 @@ pub mod vs {
         ",
     }
 
-	pub const ENTRY_POINT: &str = "main";
+    pub const ENTRY_POINT: &str = "main";
 }
 
 #[cfg(feature = "use-glsl-shader")]
 pub mod fs {
-	vulkano_shaders::shader! {
+    vulkano_shaders::shader! {
         ty: "fragment",
         src: r"
             #version 450
@@ -58,5 +58,5 @@ pub mod fs {
         ",
     }
 
-	pub const ENTRY_POINT: &str = "main";
+    pub const ENTRY_POINT: &str = "main";
 }

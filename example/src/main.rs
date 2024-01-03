@@ -8,6 +8,7 @@
 // according to those terms.
 
 use std::{io::Cursor, sync::Arc};
+use vulkano::device::Features;
 use vulkano::{
     buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage},
     command_buffer::{
@@ -46,7 +47,6 @@ use vulkano::{
     sync::{self, FlushError, GpuFuture},
     VulkanLibrary,
 };
-use vulkano::device::Features;
 use vulkano_win::VkSurfaceBuild;
 use winit::{
     event::{Event, WindowEvent},
