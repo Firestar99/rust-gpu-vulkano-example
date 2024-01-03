@@ -50,6 +50,7 @@ use vulkano::{
     sync::{self, GpuFuture},
     DeviceSize, Validated, VulkanError, VulkanLibrary,
 };
+use vulkano::device::Features;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -79,12 +80,18 @@ fn main() {
 
     let device_extensions = DeviceExtensions {
         khr_swapchain: true,
+        khr_vulkan_memory_model: true,
         ..DeviceExtensions::empty()
+    };
+    let features = Features {
+        vulkan_memory_model: true,
+        ..Features::empty()
     };
     let (physical_device, queue_family_index) = instance
         .enumerate_physical_devices()
         .unwrap()
         .filter(|p| p.supported_extensions().contains(&device_extensions))
+        .filter(|p| p.supported_features().contains(&features))
         .filter_map(|p| {
             p.queue_family_properties()
                 .iter()
@@ -115,6 +122,7 @@ fn main() {
         physical_device,
         DeviceCreateInfo {
             enabled_extensions: device_extensions,
+            enabled_features: features,
             queue_create_infos: vec![QueueCreateInfo {
                 queue_family_index,
                 ..Default::default()
@@ -284,11 +292,11 @@ fn main() {
     let pipeline = {
         let vs = vs::load(device.clone())
             .unwrap()
-            .entry_point("main")
+            .single_entry_point()
             .unwrap();
         let fs = fs::load(device.clone())
             .unwrap()
-            .entry_point("main")
+            .single_entry_point()
             .unwrap();
         let vertex_input_state = Vertex::per_vertex()
             .definition(&vs.info().input_interface)
@@ -504,38 +512,8 @@ fn window_size_dependent_setup(
         .collect::<Vec<_>>()
 }
 
-mod vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: r"
-            #version 450
+pub mod shaders;
 
-            layout(location = 0) in vec2 position;
-            layout(location = 0) out vec2 tex_coords;
+pub use shaders::vs;
 
-            void main() {
-                gl_Position = vec4(position, 0.0, 1.0);
-                tex_coords = position + vec2(0.5);
-            }
-        ",
-    }
-}
-
-mod fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: r"
-            #version 450
-
-            layout(location = 0) in vec2 tex_coords;
-            layout(location = 0) out vec4 f_color;
-
-            layout(set = 0, binding = 0) uniform sampler s;
-            layout(set = 0, binding = 1) uniform texture2D tex;
-
-            void main() {
-                f_color = texture(sampler2D(tex, s), tex_coords);
-            }
-        ",
-    }
-}
+pub use shaders::fs;

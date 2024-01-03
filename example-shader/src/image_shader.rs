@@ -1,6 +1,5 @@
 use spirv_std::glam::{vec2, vec4, Vec2, Vec4};
-use spirv_std::image::SampledImage;
-use spirv_std::{spirv, Image};
+use spirv_std::{spirv, Image, Sampler};
 
 #[spirv(vertex)]
 pub fn image_vs(
@@ -15,8 +14,9 @@ pub fn image_vs(
 #[spirv(fragment)]
 pub fn image_fs(
     tex_coord: Vec2,
-    #[spirv(descriptor_set = 0, binding = 0)] image: &SampledImage<Image!(2D, type=f32, sampled)>,
+    #[spirv(descriptor_set = 0, binding = 0)] sampler: &Sampler,
+    #[spirv(descriptor_set = 0, binding = 1)] image: &Image!(2D, type=f32, sampled),
     f_color: &mut Vec4,
 ) {
-    *f_color = image.sample(tex_coord);
+    *f_color = image.sample(*sampler, tex_coord);
 }
