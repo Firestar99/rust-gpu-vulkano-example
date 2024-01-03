@@ -16,9 +16,9 @@ use-glsl-shader = []
 [dependencies]
 # once vulkano 0.34.X releases this git declaration may be replaced
 # https://github.com/vulkano-rs/vulkano/pull/2180
-vulkano = { git = "https://github.com/vulkano-rs/vulkano", rev = "62ff8b45a51489b64db4679148b169df18bc565f" }
-vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano", rev = "62ff8b45a51489b64db4679148b169df18bc565f" }
-vulkano-win = { git = "https://github.com/vulkano-rs/vulkano", rev = "62ff8b45a51489b64db4679148b169df18bc565f" }
+vulkano = "0.34"
+vulkano-shaders = "0.34"
+vulkano-win = "0.34"
 
 winit = "0.28"
 bytemuck = { version = "1.7", features = ["derive", "extern_crate_std", "min_const_generics"] }
