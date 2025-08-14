@@ -1,11 +1,13 @@
 [workspace]
-members = [
-    "example",
-    "example-shader",
-]
+members = ["example", "example-shader"]
 # required by rust-gpu to prevent too agressive feature merging
 # resolver needs to be manually set to "2" in virtual manifests and cannot be derived from workspace.edition = "2021"
 resolver = "2"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_arch, values("spirv"))',
+] }
 
 [workspace.package]
 version = "0.1.0"
