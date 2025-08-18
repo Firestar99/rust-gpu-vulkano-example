@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 
 [features]
+# Comment the three line bellow if spirv is not installed locally
 default = ["use-installed-tools"]
 use-installed-tools = ["spirv-builder/use-installed-tools"]
 use-compiled-tools = ["spirv-builder/use-compiled-tools"]
@@ -21,8 +22,12 @@ vulkano-shaders = "0.34"
 vulkano-win = "0.34"
 
 winit = "0.28"
-bytemuck = { version = "1.7", features = ["derive", "extern_crate_std", "min_const_generics"] }
+bytemuck = { version = "1.7", features = [
+    "derive",
+    "extern_crate_std",
+    "min_const_generics",
+] }
 png = "0.17"
 
 [build-dependencies]
-spirv-builder = { version = "0.9", default-features = false }
+spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu.git", branch = "main" }

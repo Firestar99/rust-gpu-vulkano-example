@@ -8,6 +8,7 @@
 // according to those terms.
 
 use std::sync::Arc;
+use vulkano::device::Features;
 use vulkano::{
     buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage},
     command_buffer::{
@@ -50,7 +51,6 @@ use vulkano::{
     sync::{self, GpuFuture},
     DeviceSize, Validated, VulkanError, VulkanLibrary,
 };
-use vulkano::device::Features;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},

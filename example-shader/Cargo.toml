@@ -8,5 +8,8 @@ repository.workspace = true
 [lib]
 crate-type = ["dylib"]
 
+[lints]
+workspace = true
+
 [dependencies]
-spirv-std = "0.9"
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu.git", branch = "main" }
