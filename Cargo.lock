@@ -445,8 +445,6 @@ name = "example-shader"
 version = "0.1.0"
 dependencies = [
  "spirv-std",
- "spirv-std-macros",
- "spirv-std-types",
 ]
 
 [[package]]

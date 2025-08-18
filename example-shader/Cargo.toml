@@ -13,5 +13,3 @@ workspace = true
 
 [dependencies]
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu.git", branch = "main" }
-spirv-std-types = { git = "https://github.com/Rust-GPU/rust-gpu.git", branch = "main" }
-spirv-std-macros = { git = "https://github.com/Rust-GPU/rust-gpu.git", branch = "main" }
