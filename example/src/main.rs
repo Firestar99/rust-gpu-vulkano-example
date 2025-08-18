@@ -13,7 +13,7 @@ use vulkano::{
     buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
-        PrimaryAutoCommandBuffer, PrimaryCommandBufferAbstract, RenderPassBeginInfo,
+        PrimaryCommandBufferAbstract, RenderPassBeginInfo,
     },
     descriptor_set::{
         allocator::StandardDescriptorSetAllocator, layout::DescriptorSetLayout, DescriptorSet,
@@ -53,10 +53,7 @@ use vulkano::{
     DeviceSize, Validated, VulkanError, VulkanLibrary,
 };
 use winit::{
-    application::ApplicationHandler,
-    event::{KeyEvent, WindowEvent},
-    event_loop::EventLoop,
-    keyboard::Key,
+    application::ApplicationHandler, event::WindowEvent, event_loop::EventLoop, keyboard::Key,
     window::Window,
 };
 
@@ -82,8 +79,6 @@ struct App {
     framebuffers: Vec<Arc<Framebuffer>>,
     render_pass: Option<Arc<RenderPass>>,
     viewport: Viewport,
-    previous_frame_end: Option<Box<dyn GpuFuture>>,
-    // uploads: Option<AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>>,
     pipeline: Option<Arc<GraphicsPipeline>>,
     vertex_buffer: Option<Subbuffer<[vulkano_example::Vertex]>>,
     command_buffer_allocator: Option<Arc<StandardCommandBufferAllocator>>,
@@ -277,12 +272,6 @@ impl ApplicationHandler for App {
                 self.device.as_ref().unwrap().clone(),
                 Default::default(),
             )));
-        let uploads = AutoCommandBufferBuilder::primary(
-            std::sync::Arc::new(self.command_buffer_allocator.as_ref().unwrap().clone()),
-            self.queue.as_ref().unwrap().queue_family_index(),
-            CommandBufferUsage::OneTimeSubmit,
-        )
-        .unwrap();
 
         self.texture = {
             let png_bytes = include_bytes!("image_img.png").as_slice();
@@ -424,14 +413,6 @@ impl ApplicationHandler for App {
         );
 
         self.recreate_swapchain = false;
-        self.previous_frame_end = Some(
-            uploads
-                .build()
-                .unwrap()
-                .execute(self.queue.as_ref().unwrap().clone())
-                .unwrap()
-                .boxed(),
-        );
     }
 
     fn window_event(
@@ -440,7 +421,6 @@ impl ApplicationHandler for App {
         _window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
-        println!("event");
         match event {
             WindowEvent::CloseRequested => {
                 event_loop.exit();
@@ -461,7 +441,23 @@ impl ApplicationHandler for App {
                     return;
                 }
 
-                self.previous_frame_end.as_mut().unwrap().cleanup_finished();
+                let uploads = AutoCommandBufferBuilder::primary(
+                    std::sync::Arc::new(self.command_buffer_allocator.as_ref().unwrap().clone()),
+                    self.queue.as_ref().unwrap().queue_family_index(),
+                    CommandBufferUsage::OneTimeSubmit,
+                )
+                .unwrap();
+
+                let mut previous_frame_end = Some(
+                    uploads
+                        .build()
+                        .unwrap()
+                        .execute(self.queue.as_ref().unwrap().clone())
+                        .unwrap()
+                        .boxed(),
+                );
+
+                previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                 if self.recreate_swapchain {
                     let (new_swapchain, new_images) = self
@@ -537,8 +533,7 @@ impl ApplicationHandler for App {
                 }
                 let command_buffer = builder.build().unwrap();
 
-                let future = self
-                    .previous_frame_end
+                let future = previous_frame_end
                     .take()
                     .unwrap()
                     .join(acquire_future)
@@ -566,6 +561,7 @@ impl ApplicationHandler for App {
                         Some(sync::now(self.device.as_ref().unwrap().clone()).boxed());
                     }
                 }
+                self.window.as_ref().unwrap().request_redraw();
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.logical_key == Key::Named(winit::keyboard::NamedKey::Escape) {
