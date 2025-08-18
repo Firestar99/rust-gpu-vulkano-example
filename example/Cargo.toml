@@ -7,9 +7,9 @@ repository.workspace = true
 
 [features]
 # Comment the three line bellow if spirv is not installed locally
-# default = ["use-installed-tools"]
-# use-installed-tools = ["spirv-builder/use-installed-tools"]
-# use-compiled-tools = ["spirv-builder/use-compiled-tools"]
+default = ["use-installed-tools"]
+use-installed-tools = ["spirv-builder/use-installed-tools"]
+use-compiled-tools = ["spirv-builder/use-compiled-tools"]
 
 # use this to switch back to glsl shaders
 use-glsl-shader = []
