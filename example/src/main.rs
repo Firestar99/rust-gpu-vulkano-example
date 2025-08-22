@@ -87,6 +87,7 @@ struct App {
     descriptor_set: Option<Arc<DescriptorSet>>,
     sampler: Option<Arc<Sampler>>,
     texture: Option<Arc<ImageView>>,
+    previous_frame_end: Option<Box<dyn GpuFuture>>,
 }
 
 impl ApplicationHandler for App {
@@ -273,6 +274,13 @@ impl ApplicationHandler for App {
                 Default::default(),
             )));
 
+        let uploads = AutoCommandBufferBuilder::primary(
+            std::sync::Arc::new(self.command_buffer_allocator.as_ref().unwrap().clone()),
+            self.queue.as_ref().unwrap().queue_family_index(),
+            CommandBufferUsage::OneTimeSubmit,
+        )
+        .unwrap();
+
         self.texture = {
             let png_bytes = include_bytes!("image_img.png").as_slice();
             let decoder = png::Decoder::new(png_bytes);
@@ -413,6 +421,15 @@ impl ApplicationHandler for App {
         );
 
         self.recreate_swapchain = false;
+
+        self.previous_frame_end = Some(
+            uploads
+                .build()
+                .unwrap()
+                .execute(self.queue.as_ref().unwrap().clone())
+                .unwrap()
+                .boxed(),
+        );
     }
 
     fn window_event(
@@ -441,23 +458,7 @@ impl ApplicationHandler for App {
                     return;
                 }
 
-                let uploads = AutoCommandBufferBuilder::primary(
-                    std::sync::Arc::new(self.command_buffer_allocator.as_ref().unwrap().clone()),
-                    self.queue.as_ref().unwrap().queue_family_index(),
-                    CommandBufferUsage::OneTimeSubmit,
-                )
-                .unwrap();
-
-                let mut previous_frame_end = Some(
-                    uploads
-                        .build()
-                        .unwrap()
-                        .execute(self.queue.as_ref().unwrap().clone())
-                        .unwrap()
-                        .boxed(),
-                );
-
-                previous_frame_end.as_mut().unwrap().cleanup_finished();
+                self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                 if self.recreate_swapchain {
                     let (new_swapchain, new_images) = self
@@ -533,7 +534,8 @@ impl ApplicationHandler for App {
                 }
                 let command_buffer = builder.build().unwrap();
 
-                let future = previous_frame_end
+                let future = self
+                    .previous_frame_end
                     .take()
                     .unwrap()
                     .join(acquire_future)
@@ -550,15 +552,17 @@ impl ApplicationHandler for App {
 
                 match future.map_err(Validated::unwrap) {
                     Ok(future) => {
-                        Some(future.boxed());
+                        self.previous_frame_end = Some(future.boxed());
                     }
                     Err(VulkanError::OutOfDate) => {
                         self.recreate_swapchain = true;
-                        Some(sync::now(self.device.as_ref().unwrap().clone()).boxed());
+                        self.previous_frame_end =
+                            Some(sync::now(self.device.as_ref().unwrap().clone()).boxed());
                     }
                     Err(e) => {
                         println!("failed to flush future: {e}");
-                        Some(sync::now(self.device.as_ref().unwrap().clone()).boxed());
+                        self.previous_frame_end =
+                            Some(sync::now(self.device.as_ref().unwrap().clone()).boxed());
                     }
                 }
                 self.window.as_ref().unwrap().request_redraw();
