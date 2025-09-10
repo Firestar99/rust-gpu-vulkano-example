@@ -13,7 +13,7 @@ use vulkano::{
     buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
-        PrimaryCommandBufferAbstract, RenderPassBeginInfo,
+        CopyBufferToImageInfo, PrimaryCommandBufferAbstract, RenderPassBeginInfo,
     },
     descriptor_set::{
         allocator::StandardDescriptorSetAllocator, layout::DescriptorSetLayout, DescriptorSet,
@@ -57,6 +57,10 @@ use winit::{
     window::Window,
 };
 
+pub mod shaders;
+pub use shaders::fs;
+pub use shaders::vs;
+
 mod vulkano_example {
     use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input};
 
@@ -92,7 +96,6 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        println!("Resumed");
         self.window = Some(std::sync::Arc::new(
             event_loop
                 .create_window(Window::default_attributes())
@@ -112,7 +115,6 @@ impl ApplicationHandler for App {
             )
             .unwrap(),
         );
-
         let surface = Surface::from_window(
             self.vulkano_instance.as_ref().unwrap().clone(),
             self.window.clone().unwrap(),
@@ -200,7 +202,7 @@ impl ApplicationHandler for App {
                 SwapchainCreateInfo {
                     min_image_count: surface_capabilities.min_image_count.max(2),
                     image_format,
-                    image_extent: self.window.clone().unwrap().inner_size().clone().into(),
+                    image_extent: self.window.clone().unwrap().inner_size().into(),
                     image_usage: ImageUsage::COLOR_ATTACHMENT,
                     composite_alpha: surface_capabilities
                         .supported_composite_alpha
@@ -274,8 +276,8 @@ impl ApplicationHandler for App {
                 Default::default(),
             )));
 
-        let uploads = AutoCommandBufferBuilder::primary(
-            std::sync::Arc::new(self.command_buffer_allocator.as_ref().unwrap().clone()),
+        let mut uploads = AutoCommandBufferBuilder::primary(
+            self.command_buffer_allocator.as_ref().unwrap().clone(),
             self.queue.as_ref().unwrap().queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         )
@@ -319,6 +321,13 @@ impl ApplicationHandler for App {
                 AllocationCreateInfo::default(),
             )
             .unwrap();
+
+            uploads
+                .copy_buffer_to_image(CopyBufferToImageInfo::buffer_image(
+                    upload_buffer,
+                    image.clone(),
+                ))
+                .unwrap();
 
             ImageView::new_default(image).ok()
         };
@@ -393,7 +402,7 @@ impl ApplicationHandler for App {
                 .unwrap()
                 .layout()
                 .set_layouts()
-                .get(0)
+                .first()
                 .unwrap()
                 .clone(),
         );
@@ -446,7 +455,6 @@ impl ApplicationHandler for App {
                 self.recreate_swapchain = true;
             }
             WindowEvent::RedrawRequested => {
-                println!("Redraw");
                 let image_extent: [u32; 2] = self
                     .window
                     .clone()
@@ -565,7 +573,8 @@ impl ApplicationHandler for App {
                             Some(sync::now(self.device.as_ref().unwrap().clone()).boxed());
                     }
                 }
-                self.window.as_ref().unwrap().request_redraw();
+                // Since the image does not change, should we redraw it each frame ?
+                // self.window.as_ref().unwrap().request_redraw();
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.logical_key == Key::Named(winit::keyboard::NamedKey::Escape) {
@@ -610,9 +619,3 @@ fn window_size_dependent_setup(
         })
         .collect::<Vec<_>>()
 }
-
-pub mod shaders;
-
-pub use shaders::vs;
-
-pub use shaders::fs;

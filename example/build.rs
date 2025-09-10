@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect::<Vec<String>>()
         .join("\n");
     println!("OUT_DIR: {}", env::var("OUT_DIR").unwrap());
-    println!("paths:\n{}", paths);
+    println!("paths:\n{paths}");
     println!("entry points: {}", result.codegen_entry_point_strings());
 
     // uncomment if you want to see build output
