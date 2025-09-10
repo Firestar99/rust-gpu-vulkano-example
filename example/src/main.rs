@@ -7,8 +7,6 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use std::sync::Arc;
-use vulkano::device::Features;
 use vulkano::{
     buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
     command_buffer::{
@@ -74,23 +72,23 @@ mod vulkano_example {
 
 #[derive(Default)]
 struct App {
-    window: Option<Arc<Window>>,
+    window: Option<std::sync::Arc<Window>>,
     recreate_swapchain: bool,
-    vulkano_instance: Option<Arc<Instance>>,
-    queue: Option<Arc<Queue>>,
-    swapchain: Option<Arc<Swapchain>>,
-    device: Option<Arc<Device>>,
-    framebuffers: Vec<Arc<Framebuffer>>,
-    render_pass: Option<Arc<RenderPass>>,
+    vulkano_instance: Option<std::sync::Arc<Instance>>,
+    queue: Option<std::sync::Arc<Queue>>,
+    swapchain: Option<std::sync::Arc<Swapchain>>,
+    device: Option<std::sync::Arc<Device>>,
+    framebuffers: Vec<std::sync::Arc<Framebuffer>>,
+    render_pass: Option<std::sync::Arc<RenderPass>>,
     viewport: Viewport,
-    pipeline: Option<Arc<GraphicsPipeline>>,
+    pipeline: Option<std::sync::Arc<GraphicsPipeline>>,
     vertex_buffer: Option<Subbuffer<[vulkano_example::Vertex]>>,
-    command_buffer_allocator: Option<Arc<StandardCommandBufferAllocator>>,
-    descriptor_set_allocator: Option<Arc<StandardDescriptorSetAllocator>>,
-    layout: Option<Arc<DescriptorSetLayout>>,
-    descriptor_set: Option<Arc<DescriptorSet>>,
-    sampler: Option<Arc<Sampler>>,
-    texture: Option<Arc<ImageView>>,
+    command_buffer_allocator: Option<std::sync::Arc<StandardCommandBufferAllocator>>,
+    descriptor_set_allocator: Option<std::sync::Arc<StandardDescriptorSetAllocator>>,
+    layout: Option<std::sync::Arc<DescriptorSetLayout>>,
+    descriptor_set: Option<std::sync::Arc<DescriptorSet>>,
+    sampler: Option<std::sync::Arc<Sampler>>,
+    texture: Option<std::sync::Arc<ImageView>>,
     previous_frame_end: Option<Box<dyn GpuFuture>>,
 }
 
@@ -215,7 +213,7 @@ impl ApplicationHandler for App {
             .unwrap()
         };
         self.swapchain = Some(swapchain);
-        let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(
+        let memory_allocator = std::sync::Arc::new(StandardMemoryAllocator::new_default(
             self.device.as_ref().unwrap().clone(),
         ));
 
@@ -285,7 +283,11 @@ impl ApplicationHandler for App {
 
         self.texture = {
             let png_bytes = include_bytes!("image_img.png").as_slice();
-            let decoder = png::Decoder::new(png_bytes);
+            let decoder = png::Decoder::new(std::io::Cursor::new(png_bytes));
+
+            // let decoder = png::Decoder::new(BufReader::new(
+            //     File::open("example/src/image_img.png").unwrap(),
+            // ));
             let mut reader = decoder.read_info().unwrap();
             let info = reader.info();
             let extent = [info.width, info.height, 1];
@@ -597,10 +599,10 @@ fn main() {
 
 /// This function is called once during initialization, then again whenever the window is resized.
 fn window_size_dependent_setup(
-    images: &[Arc<Image>],
-    render_pass: Arc<RenderPass>,
+    images: &[std::sync::Arc<Image>],
+    render_pass: std::sync::Arc<RenderPass>,
     viewport: &mut Viewport,
-) -> Vec<Arc<Framebuffer>> {
+) -> Vec<std::sync::Arc<Framebuffer>> {
     let extent = images[0].extent();
     viewport.extent = [extent[0] as f32, extent[1] as f32];
 
