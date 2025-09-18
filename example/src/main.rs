@@ -14,8 +14,7 @@ use vulkano::{
         CopyBufferToImageInfo, PrimaryCommandBufferAbstract, RenderPassBeginInfo,
     },
     descriptor_set::{
-        allocator::StandardDescriptorSetAllocator, layout::DescriptorSetLayout, DescriptorSet,
-        WriteDescriptorSet,
+        allocator::StandardDescriptorSetAllocator, DescriptorSet, WriteDescriptorSet,
     },
     device::{
         physical::PhysicalDeviceType, Device, DeviceCreateInfo, DeviceExtensions, DeviceFeatures,
@@ -70,52 +69,42 @@ mod vulkano_example {
     }
 }
 
-#[derive(Default)]
 struct App {
-    window: Option<std::sync::Arc<Window>>,
-    recreate_swapchain: bool,
-    vulkano_instance: Option<std::sync::Arc<Instance>>,
-    queue: Option<std::sync::Arc<Queue>>,
-    swapchain: Option<std::sync::Arc<Swapchain>>,
-    device: Option<std::sync::Arc<Device>>,
+    vulkano_instance: std::sync::Arc<Instance>,
+    device: std::sync::Arc<Device>,
+    queue: std::sync::Arc<Queue>,
+    command_buffer_allocator: std::sync::Arc<StandardCommandBufferAllocator>,
+    descriptor_set_allocator: std::sync::Arc<StandardDescriptorSetAllocator>,
+    memory_allocator: std::sync::Arc<StandardMemoryAllocator>,
+    sampler: std::sync::Arc<Sampler>,
+    vertex_buffer: Subbuffer<[vulkano_example::Vertex]>,
+    texture_buffer: Subbuffer<[u8]>,
+    render_ctx: Option<RenderContext>,
+}
+
+struct RenderContext {
+    window: std::sync::Arc<Window>,
+    swapchain: std::sync::Arc<Swapchain>,
+    render_pass: std::sync::Arc<RenderPass>,
     framebuffers: Vec<std::sync::Arc<Framebuffer>>,
-    render_pass: Option<std::sync::Arc<RenderPass>>,
     viewport: Viewport,
-    pipeline: Option<std::sync::Arc<GraphicsPipeline>>,
-    vertex_buffer: Option<Subbuffer<[vulkano_example::Vertex]>>,
-    command_buffer_allocator: Option<std::sync::Arc<StandardCommandBufferAllocator>>,
-    descriptor_set_allocator: Option<std::sync::Arc<StandardDescriptorSetAllocator>>,
-    layout: Option<std::sync::Arc<DescriptorSetLayout>>,
-    descriptor_set: Option<std::sync::Arc<DescriptorSet>>,
-    sampler: Option<std::sync::Arc<Sampler>>,
-    texture: Option<std::sync::Arc<ImageView>>,
+    pipeline: std::sync::Arc<GraphicsPipeline>,
+    descriptor_set: std::sync::Arc<DescriptorSet>,
+    recreate_swapchain: bool,
     previous_frame_end: Option<Box<dyn GpuFuture>>,
 }
 
-impl ApplicationHandler for App {
-    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        self.window = Some(std::sync::Arc::new(
-            event_loop
-                .create_window(Window::default_attributes())
-                .unwrap(),
-        ));
-
+impl App {
+    fn new(event_loop: &EventLoop<()>) -> Self {
         let library = VulkanLibrary::new().unwrap();
         let required_extensions = Surface::required_extensions(&event_loop).unwrap();
-        self.vulkano_instance = Some(
-            Instance::new(
-                library,
-                InstanceCreateInfo {
-                    flags: InstanceCreateFlags::ENUMERATE_PORTABILITY,
-                    enabled_extensions: required_extensions,
-                    ..Default::default()
-                },
-            )
-            .unwrap(),
-        );
-        let surface = Surface::from_window(
-            self.vulkano_instance.as_ref().unwrap().clone(),
-            self.window.clone().unwrap(),
+        let vulkano_instance = Instance::new(
+            library,
+            InstanceCreateInfo {
+                flags: InstanceCreateFlags::ENUMERATE_PORTABILITY,
+                enabled_extensions: required_extensions,
+                ..Default::default()
+            },
         )
         .unwrap();
         let device_extensions = DeviceExtensions {
@@ -127,10 +116,7 @@ impl ApplicationHandler for App {
             vulkan_memory_model: true,
             ..DeviceFeatures::empty()
         };
-        let (physical_device, queue_family_index) = self
-            .vulkano_instance
-            .as_ref()
-            .unwrap()
+        let (physical_device, queue_family_index) = vulkano_instance
             .enumerate_physical_devices()
             .unwrap()
             .filter(|p| p.supported_extensions().contains(&device_extensions))
@@ -141,7 +127,8 @@ impl ApplicationHandler for App {
                     .enumerate()
                     .position(|(i, q)| {
                         q.queue_flags.intersects(QueueFlags::GRAPHICS)
-                            && p.surface_support(i as u32, &surface).unwrap_or(false)
+                            && p.presentation_support(i as u32, event_loop)
+                                .unwrap_or(false)
                     })
                     .map(|i| (p, i as u32))
             })
@@ -174,47 +161,17 @@ impl ApplicationHandler for App {
             },
         )
         .unwrap();
-        self.device = Some(device);
-        self.queue = queues.next();
+        let queue = queues.next().unwrap();
 
-        let (swapchain, images) = {
-            let surface_capabilities = self
-                .device
-                .as_ref()
-                .unwrap()
-                .physical_device()
-                .surface_capabilities(&surface, Default::default())
-                .unwrap();
-            let image_format = self
-                .device
-                .as_ref()
-                .unwrap()
-                .physical_device()
-                .surface_formats(&surface, Default::default())
-                .unwrap()[0]
-                .0;
-
-            Swapchain::new(
-                self.device.as_ref().unwrap().clone(),
-                surface,
-                SwapchainCreateInfo {
-                    min_image_count: surface_capabilities.min_image_count.max(2),
-                    image_format,
-                    image_extent: self.window.clone().unwrap().inner_size().into(),
-                    image_usage: ImageUsage::COLOR_ATTACHMENT,
-                    composite_alpha: surface_capabilities
-                        .supported_composite_alpha
-                        .into_iter()
-                        .next()
-                        .unwrap(),
-                    ..Default::default()
-                },
-            )
-            .unwrap()
-        };
-        self.swapchain = Some(swapchain);
-        let memory_allocator = std::sync::Arc::new(StandardMemoryAllocator::new_default(
-            self.device.as_ref().unwrap().clone(),
+        let memory_allocator =
+            std::sync::Arc::new(StandardMemoryAllocator::new_default(device.clone()));
+        let command_buffer_allocator = std::sync::Arc::new(StandardCommandBufferAllocator::new(
+            device.clone(),
+            Default::default(),
+        ));
+        let descriptor_set_allocator = std::sync::Arc::new(StandardDescriptorSetAllocator::new(
+            device.clone(),
+            Default::default(),
         ));
 
         let vertices = [
@@ -231,7 +188,7 @@ impl ApplicationHandler for App {
                 position: [0.5, 0.5],
             },
         ];
-        self.vertex_buffer = Buffer::from_iter(
+        let vertex_buffer = Buffer::from_iter(
             memory_allocator.clone(),
             BufferCreateInfo {
                 usage: BufferUsage::VERTEX_BUFFER,
@@ -244,55 +201,30 @@ impl ApplicationHandler for App {
             },
             vertices,
         )
-        .ok();
+        .unwrap();
 
-        self.render_pass = vulkano::single_pass_renderpass!(
-            self.device.as_ref().unwrap().clone(),
-            attachments: {
-                color: {
-                    format: self.swapchain.as_ref().unwrap().image_format(),
-                    samples: 1,
-                    load_op: Clear,
-                    store_op: Store,
-                },
+        let sampler = Sampler::new(
+            device.clone(),
+            SamplerCreateInfo {
+                mag_filter: Filter::Linear,
+                min_filter: Filter::Linear,
+                address_mode: [SamplerAddressMode::Repeat; 3],
+                ..Default::default()
             },
-            pass: {
-                color: [color],
-                depth_stencil: {},
-            },
-        )
-        .ok();
-
-        self.descriptor_set_allocator =
-            Some(std::sync::Arc::new(StandardDescriptorSetAllocator::new(
-                self.device.as_ref().unwrap().clone(),
-                Default::default(),
-            )));
-        self.command_buffer_allocator =
-            Some(std::sync::Arc::new(StandardCommandBufferAllocator::new(
-                self.device.as_ref().unwrap().clone(),
-                Default::default(),
-            )));
-
-        let mut uploads = AutoCommandBufferBuilder::primary(
-            self.command_buffer_allocator.as_ref().unwrap().clone(),
-            self.queue.as_ref().unwrap().queue_family_index(),
-            CommandBufferUsage::OneTimeSubmit,
         )
         .unwrap();
 
-        self.texture = {
+        let texture_buffer = {
             let png_bytes = include_bytes!("image_img.png").as_slice();
             let decoder = png::Decoder::new(std::io::Cursor::new(png_bytes));
 
             // let decoder = png::Decoder::new(BufReader::new(
             //     File::open("example/src/image_img.png").unwrap(),
             // ));
-            let mut reader = decoder.read_info().unwrap();
+            let reader = decoder.read_info().unwrap();
             let info = reader.info();
-            let extent = [info.width, info.height, 1];
 
-            let upload_buffer = Buffer::new_slice(
+            Buffer::new_slice(
                 memory_allocator.clone(),
                 BufferCreateInfo {
                     usage: BufferUsage::TRANSFER_SRC,
@@ -305,14 +237,114 @@ impl ApplicationHandler for App {
                 },
                 (info.width * info.height * 4) as DeviceSize,
             )
-            .unwrap();
+            .unwrap()
+        };
+
+        App {
+            vulkano_instance,
+            device,
+            queue,
+            command_buffer_allocator,
+            descriptor_set_allocator,
+            memory_allocator,
+            sampler,
+            vertex_buffer,
+            texture_buffer,
+            render_ctx: None,
+        }
+    }
+}
+
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        let window = std::sync::Arc::new(
+            event_loop
+                .create_window(Window::default_attributes())
+                .unwrap(),
+        );
+        let surface = Surface::from_window(self.vulkano_instance.clone(), window.clone()).unwrap();
+
+        let (swapchain, images) = {
+            let surface_capabilities = self
+                .device
+                .physical_device()
+                .surface_capabilities(&surface, Default::default())
+                .unwrap();
+            let image_format = self
+                .device
+                .clone()
+                .physical_device()
+                .surface_formats(&surface, Default::default())
+                .unwrap()[0]
+                .0;
+
+            Swapchain::new(
+                self.device.clone(),
+                surface,
+                SwapchainCreateInfo {
+                    min_image_count: surface_capabilities.min_image_count.max(2),
+                    image_format,
+                    image_extent: window.clone().inner_size().into(),
+                    image_usage: ImageUsage::COLOR_ATTACHMENT,
+                    composite_alpha: surface_capabilities
+                        .supported_composite_alpha
+                        .into_iter()
+                        .next()
+                        .unwrap(),
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+        };
+
+        let render_pass = vulkano::single_pass_renderpass!(
+            self.device.clone(),
+            attachments: {
+                color: {
+                    format: swapchain.image_format(),
+                    samples: 1,
+                    load_op: Clear,
+                    store_op: Store,
+                },
+            },
+            pass: {
+                color: [color],
+                depth_stencil: {},
+            },
+        )
+        .unwrap();
+
+        let mut viewport = Viewport {
+            offset: [0.0, 0.0],
+            extent: [0.0, 0.0],
+            depth_range: 0.0..=1.0,
+        };
+        let framebuffers = window_size_dependent_setup(&images, render_pass.clone(), &mut viewport);
+
+        let mut uploads = AutoCommandBufferBuilder::primary(
+            self.command_buffer_allocator.clone(),
+            self.queue.queue_family_index(),
+            CommandBufferUsage::OneTimeSubmit,
+        )
+        .unwrap();
+
+        let texture = {
+            let png_bytes = include_bytes!("image_img.png").as_slice();
+            let decoder = png::Decoder::new(std::io::Cursor::new(png_bytes));
+
+            // let decoder = png::Decoder::new(BufReader::new(
+            //     File::open("example/src/image_img.png").unwrap(),
+            // ));
+            let mut reader = decoder.read_info().unwrap();
+            let info = reader.info();
+            let extent = [info.width, info.height, 1];
 
             reader
-                .next_frame(&mut upload_buffer.write().unwrap())
+                .next_frame(&mut self.texture_buffer.write().unwrap())
                 .unwrap();
 
             let image = Image::new(
-                memory_allocator,
+                self.memory_allocator.clone(),
                 ImageCreateInfo {
                     image_type: ImageType::Dim2d,
                     format: Format::R8G8B8A8_SRGB,
@@ -326,31 +358,20 @@ impl ApplicationHandler for App {
 
             uploads
                 .copy_buffer_to_image(CopyBufferToImageInfo::buffer_image(
-                    upload_buffer,
+                    self.texture_buffer.clone(),
                     image.clone(),
                 ))
                 .unwrap();
 
-            ImageView::new_default(image).ok()
+            ImageView::new_default(image).unwrap()
         };
 
-        self.sampler = Sampler::new(
-            self.device.as_ref().unwrap().clone(),
-            SamplerCreateInfo {
-                mag_filter: Filter::Linear,
-                min_filter: Filter::Linear,
-                address_mode: [SamplerAddressMode::Repeat; 3],
-                ..Default::default()
-            },
-        )
-        .ok();
-
-        self.pipeline = {
-            let vs = vs::load(self.device.as_ref().unwrap().clone())
+        let pipeline = {
+            let vs = vs::load(self.device.clone())
                 .unwrap()
                 .single_entry_point()
                 .unwrap();
-            let fs = fs::load(self.device.as_ref().unwrap().clone())
+            let fs = fs::load(self.device.clone())
                 .unwrap()
                 .single_entry_point()
                 .unwrap();
@@ -362,16 +383,16 @@ impl ApplicationHandler for App {
                 PipelineShaderStageCreateInfo::new(fs),
             ];
             let layout = PipelineLayout::new(
-                self.device.as_ref().unwrap().clone(),
+                self.device.clone(),
                 PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
-                    .into_pipeline_layout_create_info(self.device.as_ref().unwrap().clone())
+                    .into_pipeline_layout_create_info(self.device.clone())
                     .unwrap(),
             )
             .unwrap();
-            let subpass = Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap();
+            let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
 
             GraphicsPipeline::new(
-                self.device.as_ref().unwrap().clone(),
+                self.device.clone(),
                 None,
                 GraphicsPipelineCreateInfo {
                     stages: stages.into_iter().collect(),
@@ -395,52 +416,42 @@ impl ApplicationHandler for App {
                     ..GraphicsPipelineCreateInfo::layout(layout)
                 },
             )
-            .ok()
-        };
+        }
+        .unwrap();
 
-        self.layout = Some(
-            self.pipeline
-                .as_ref()
-                .unwrap()
-                .layout()
-                .set_layouts()
-                .first()
-                .unwrap()
-                .clone(),
-        );
+        let layout = pipeline.layout().set_layouts().first().unwrap().clone();
 
-        self.descriptor_set = DescriptorSet::new(
-            self.descriptor_set_allocator.as_ref().unwrap().clone(),
-            self.layout.as_ref().unwrap().clone(),
+        let descriptor_set = DescriptorSet::new(
+            self.descriptor_set_allocator.clone(),
+            layout.clone(),
             [
-                WriteDescriptorSet::sampler(0, self.sampler.as_ref().unwrap().clone()),
-                WriteDescriptorSet::image_view(1, self.texture.as_ref().unwrap().clone()),
+                WriteDescriptorSet::sampler(0, self.sampler.clone()),
+                WriteDescriptorSet::image_view(1, texture.clone()),
             ],
             [],
         )
-        .ok();
+        .unwrap();
 
-        let mut viewport = Viewport {
-            offset: [0.0, 0.0],
-            extent: [0.0, 0.0],
-            depth_range: 0.0..=1.0,
-        };
-        self.framebuffers = window_size_dependent_setup(
-            &images,
-            self.render_pass.as_ref().unwrap().clone(),
-            &mut viewport,
-        );
-
-        self.recreate_swapchain = false;
-
-        self.previous_frame_end = Some(
+        let previous_frame_end = Some(
             uploads
                 .build()
                 .unwrap()
-                .execute(self.queue.as_ref().unwrap().clone())
+                .execute(self.queue.clone())
                 .unwrap()
                 .boxed(),
         );
+
+        self.render_ctx = Some(RenderContext {
+            window,
+            swapchain,
+            render_pass,
+            viewport,
+            framebuffers,
+            pipeline,
+            descriptor_set,
+            recreate_swapchain: false,
+            previous_frame_end,
+        });
     }
 
     fn window_event(
@@ -449,66 +460,65 @@ impl ApplicationHandler for App {
         _window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
+        let render_ctx = self.render_ctx.as_mut().unwrap();
+
         match event {
             WindowEvent::CloseRequested => {
                 event_loop.exit();
             }
             WindowEvent::Resized(..) => {
-                self.recreate_swapchain = true;
+                render_ctx.recreate_swapchain = true;
             }
             WindowEvent::RedrawRequested => {
-                let image_extent: [u32; 2] = self
-                    .window
-                    .clone()
-                    .expect("Cannot retrieve a valid window")
-                    .inner_size()
-                    .into();
+                let image_extent: [u32; 2] = render_ctx.window.clone().inner_size().into();
 
                 if image_extent.contains(&0) {
                     return;
                 }
 
-                self.previous_frame_end.as_mut().unwrap().cleanup_finished();
+                render_ctx
+                    .previous_frame_end
+                    .as_mut()
+                    .unwrap()
+                    .cleanup_finished();
 
-                if self.recreate_swapchain {
-                    let (new_swapchain, new_images) = self
+                if render_ctx.recreate_swapchain {
+                    let (new_swapchain, new_images) = render_ctx
                         .swapchain
-                        .as_ref()
-                        .unwrap()
                         .recreate(SwapchainCreateInfo {
                             image_extent,
-                            ..self.swapchain.as_ref().unwrap().create_info()
+                            ..render_ctx.swapchain.create_info()
                         })
                         .expect("failed to recreate swapchain");
 
-                    self.swapchain = Some(new_swapchain);
-                    self.framebuffers = window_size_dependent_setup(
+                    render_ctx.swapchain = new_swapchain;
+                    render_ctx.framebuffers = window_size_dependent_setup(
                         &new_images,
-                        self.render_pass.as_ref().unwrap().clone(),
-                        &mut self.viewport,
+                        render_ctx.render_pass.clone(),
+                        &mut render_ctx.viewport,
                     );
-                    self.recreate_swapchain = false;
+                    render_ctx.recreate_swapchain = false;
                 }
 
                 let (image_index, suboptimal, acquire_future) =
-                    match acquire_next_image(self.swapchain.as_ref().unwrap().clone(), None)
+                    match acquire_next_image(render_ctx.swapchain.clone(), None)
                         .map_err(Validated::unwrap)
                     {
                         Ok(r) => r,
                         Err(VulkanError::OutOfDate) => {
-                            self.recreate_swapchain = true;
+                            render_ctx.recreate_swapchain = true;
                             return;
                         }
                         Err(e) => panic!("failed to acquire next image: {e}"),
                     };
 
                 if suboptimal {
-                    self.recreate_swapchain = true;
+                    render_ctx.recreate_swapchain = true;
                 }
 
                 let mut builder = AutoCommandBufferBuilder::primary(
-                    self.command_buffer_allocator.as_ref().unwrap().clone(),
-                    self.queue.as_ref().unwrap().queue_family_index(),
+                    self.command_buffer_allocator.clone(),
+                    self.queue.queue_family_index(),
                     CommandBufferUsage::OneTimeSubmit,
                 )
                 .unwrap();
@@ -518,43 +528,43 @@ impl ApplicationHandler for App {
                             RenderPassBeginInfo {
                                 clear_values: vec![Some([0.0, 0.0, 1.0, 1.0].into())],
                                 ..RenderPassBeginInfo::framebuffer(
-                                    self.framebuffers[image_index as usize].clone(),
+                                    render_ctx.framebuffers[image_index as usize].clone(),
                                 )
                             },
                             Default::default(),
                         )
                         .unwrap()
-                        .set_viewport(0, [self.viewport.clone()].into_iter().collect())
+                        .set_viewport(0, [render_ctx.viewport.clone()].into_iter().collect())
                         .unwrap()
-                        .bind_pipeline_graphics(self.pipeline.as_ref().unwrap().clone())
+                        .bind_pipeline_graphics(render_ctx.pipeline.clone())
                         .unwrap()
                         .bind_descriptor_sets(
                             PipelineBindPoint::Graphics,
-                            self.pipeline.as_ref().unwrap().layout().clone(),
+                            render_ctx.pipeline.layout().clone(),
                             0,
-                            self.descriptor_set.as_ref().unwrap().clone(),
+                            render_ctx.descriptor_set.clone(),
                         )
                         .unwrap()
-                        .bind_vertex_buffers(0, self.vertex_buffer.as_ref().unwrap().clone())
+                        .bind_vertex_buffers(0, self.vertex_buffer.clone())
                         .unwrap()
-                        .draw(self.vertex_buffer.as_ref().unwrap().len() as u32, 1, 0, 0)
+                        .draw(self.vertex_buffer.len() as u32, 1, 0, 0)
                         .unwrap()
                         .end_render_pass(Default::default())
                         .unwrap();
                 }
                 let command_buffer = builder.build().unwrap();
 
-                let future = self
+                let future = render_ctx
                     .previous_frame_end
                     .take()
                     .unwrap()
                     .join(acquire_future)
-                    .then_execute(self.queue.as_ref().unwrap().clone(), command_buffer)
+                    .then_execute(self.queue.clone(), command_buffer)
                     .unwrap()
                     .then_swapchain_present(
-                        self.queue.as_ref().unwrap().clone(),
+                        self.queue.clone(),
                         SwapchainPresentInfo::swapchain_image_index(
-                            self.swapchain.as_ref().unwrap().clone(),
+                            render_ctx.swapchain.clone(),
                             image_index,
                         ),
                     )
@@ -562,17 +572,17 @@ impl ApplicationHandler for App {
 
                 match future.map_err(Validated::unwrap) {
                     Ok(future) => {
-                        self.previous_frame_end = Some(future.boxed());
+                        render_ctx.previous_frame_end = Some(future.boxed());
                     }
                     Err(VulkanError::OutOfDate) => {
-                        self.recreate_swapchain = true;
-                        self.previous_frame_end =
-                            Some(sync::now(self.device.as_ref().unwrap().clone()).boxed());
+                        render_ctx.recreate_swapchain = true;
+                        render_ctx.previous_frame_end =
+                            Some(sync::now(self.device.clone()).boxed());
                     }
                     Err(e) => {
                         println!("failed to flush future: {e}");
-                        self.previous_frame_end =
-                            Some(sync::now(self.device.as_ref().unwrap().clone()).boxed());
+                        render_ctx.previous_frame_end =
+                            Some(sync::now(self.device.clone()).boxed());
                     }
                 }
                 // Since the image does not change, should we redraw it each frame ?
@@ -593,7 +603,7 @@ fn main() {
     // example if you haven't done so yet.
 
     let event_loop = EventLoop::new().unwrap();
-    let mut app = App::default();
+    let mut app = App::new(&event_loop);
     event_loop.run_app(&mut app).unwrap();
 }
 
