@@ -75,10 +75,10 @@ struct App {
     queue: std::sync::Arc<Queue>,
     command_buffer_allocator: std::sync::Arc<StandardCommandBufferAllocator>,
     descriptor_set_allocator: std::sync::Arc<StandardDescriptorSetAllocator>,
-    memory_allocator: std::sync::Arc<StandardMemoryAllocator>,
     sampler: std::sync::Arc<Sampler>,
     vertex_buffer: Subbuffer<[vulkano_example::Vertex]>,
     texture_buffer: Subbuffer<[u8]>,
+    image: std::sync::Arc<Image>,
     render_ctx: Option<RenderContext>,
 }
 
@@ -214,17 +214,15 @@ impl App {
         )
         .unwrap();
 
-        let texture_buffer = {
+        let (texture_buffer, image) = {
             let png_bytes = include_bytes!("image_img.png").as_slice();
             let decoder = png::Decoder::new(std::io::Cursor::new(png_bytes));
 
-            // let decoder = png::Decoder::new(BufReader::new(
-            //     File::open("example/src/image_img.png").unwrap(),
-            // ));
-            let reader = decoder.read_info().unwrap();
+            let mut reader = decoder.read_info().unwrap();
             let info = reader.info();
+            let extent = [info.width, info.height, 1];
 
-            Buffer::new_slice(
+            let texture_buffer = Buffer::new_slice(
                 memory_allocator.clone(),
                 BufferCreateInfo {
                     usage: BufferUsage::TRANSFER_SRC,
@@ -237,7 +235,25 @@ impl App {
                 },
                 (info.width * info.height * 4) as DeviceSize,
             )
-            .unwrap()
+            .unwrap();
+
+            reader
+                .next_frame(&mut texture_buffer.write().unwrap())
+                .unwrap();
+
+            let image = Image::new(
+                memory_allocator.clone(),
+                ImageCreateInfo {
+                    image_type: ImageType::Dim2d,
+                    format: Format::R8G8B8A8_SRGB,
+                    extent,
+                    usage: ImageUsage::TRANSFER_DST | ImageUsage::SAMPLED,
+                    ..Default::default()
+                },
+                AllocationCreateInfo::default(),
+            )
+            .unwrap();
+            (texture_buffer, image)
         };
 
         App {
@@ -246,10 +262,10 @@ impl App {
             queue,
             command_buffer_allocator,
             descriptor_set_allocator,
-            memory_allocator,
             sampler,
             vertex_buffer,
             texture_buffer,
+            image,
             render_ctx: None,
         }
     }
@@ -328,43 +344,12 @@ impl ApplicationHandler for App {
         )
         .unwrap();
 
-        let texture = {
-            let png_bytes = include_bytes!("image_img.png").as_slice();
-            let decoder = png::Decoder::new(std::io::Cursor::new(png_bytes));
-
-            // let decoder = png::Decoder::new(BufReader::new(
-            //     File::open("example/src/image_img.png").unwrap(),
-            // ));
-            let mut reader = decoder.read_info().unwrap();
-            let info = reader.info();
-            let extent = [info.width, info.height, 1];
-
-            reader
-                .next_frame(&mut self.texture_buffer.write().unwrap())
-                .unwrap();
-
-            let image = Image::new(
-                self.memory_allocator.clone(),
-                ImageCreateInfo {
-                    image_type: ImageType::Dim2d,
-                    format: Format::R8G8B8A8_SRGB,
-                    extent,
-                    usage: ImageUsage::TRANSFER_DST | ImageUsage::SAMPLED,
-                    ..Default::default()
-                },
-                AllocationCreateInfo::default(),
-            )
+        uploads
+            .copy_buffer_to_image(CopyBufferToImageInfo::buffer_image(
+                self.texture_buffer.clone(),
+                self.image.clone(),
+            ))
             .unwrap();
-
-            uploads
-                .copy_buffer_to_image(CopyBufferToImageInfo::buffer_image(
-                    self.texture_buffer.clone(),
-                    image.clone(),
-                ))
-                .unwrap();
-
-            ImageView::new_default(image).unwrap()
-        };
 
         let pipeline = {
             let vs = vs::load(self.device.clone())
@@ -426,7 +411,10 @@ impl ApplicationHandler for App {
             layout.clone(),
             [
                 WriteDescriptorSet::sampler(0, self.sampler.clone()),
-                WriteDescriptorSet::image_view(1, texture.clone()),
+                WriteDescriptorSet::image_view(
+                    1,
+                    ImageView::new_default(self.image.clone()).unwrap(),
+                ),
             ],
             [],
         )
