@@ -17,17 +17,16 @@ use-glsl-shader = []
 [dependencies]
 # once vulkano 0.34.X releases this git declaration may be replaced
 # https://github.com/vulkano-rs/vulkano/pull/2180
-vulkano = "0.34"
-vulkano-shaders = "0.34"
-vulkano-win = "0.34"
+vulkano = "0.35.1"
+vulkano-shaders = "0.35.0"
 
-winit = "0.28"
+winit = "0.30.10"
 bytemuck = { version = "1.7", features = [
     "derive",
     "extern_crate_std",
     "min_const_generics",
 ] }
-png = "0.17"
+png = "0.18"
 
 [build-dependencies]
-spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu.git", branch = "main" }
+spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu.git", branch = "main", default-features = false }

@@ -1,9 +1,11 @@
 # rust-gpu vulkano example
+
 An example project on how to integrate [rust-gpu](https://github.com/EmbarkStudios/rust-gpu) with [vulkano](https://github.com/vulkano-rs/vulkano). It based on vulkano's [image example](https://github.com/vulkano-rs/vulkano/blob/0.34.X/examples/src/bin/image/main.rs) but the glsl shaders are replaced with rust-gpu shaders.
 
-This example is currently based on vulkano v0.34 and rust-gpu v0.9.
+This example is currently based on vulkano v0.35.1 and the last rust-gpu version (on main branch).
 
 These are the important bits to take a look at:
+
 * [root Cargo.toml](https://github.com/Firestar99/rust-gpu-vulkano-example/blob/master/Cargo.toml) contains important configuration for the entire workspace. Most notably `resolver = "2"` for dependency resolution and enabling optimizations for build scripts, so that rust-gpu doesn't take forever to compile shaders.
 * [example's Cargo.toml](https://github.com/Firestar99/rust-gpu-vulkano-example/blob/master/example/Cargo.toml) contains next to the vulkano dependency also a `[build-dependency]` block declaring a dependency on the rust-gpu compiler `spirv-builder`. Additionally, we declare two features, to tell the builder to either use your locally installed `spirv-tools`, that come with the Vulkan SDK, or to build them itself which may take several minutes. It also contains the `use-glsl-shader` feature by which one can switch between the original glsl and rust-gpu shaders.
 * [example](https://github.com/Firestar99/rust-gpu-vulkano-example/tree/master/example/src) contains the CPU code and as mentioned above is based on the image example of vulkano. [Commit e2719349](https://github.com/Firestar99/rust-gpu-vulkano-example/commit/e27193491c3c7349be71775cdecc00b754669be9) contains all changes done to the file, notably:
@@ -11,5 +13,5 @@ These are the important bits to take a look at:
   * Instead of searching for the entry point called "main", assume there is just one entry point and use that. Rust-gpu names the entry point after the module declaration of your entry point function.
   * added required device feature `vulkan_memory_model` by rust-gpu
 * [example's build script](https://github.com/Firestar99/rust-gpu-vulkano-example/blob/master/example/build.rs) invokes rust-gpu to compile the rust shaders to SPIR-V shader binaries (.spv). Feel free to add some codegen here.
-* [example-shaders's Cargo.toml](https://github.com/Firestar99/rust-gpu-vulkano-example/blob/master/example-shader/Cargo.toml) must contain the `crate-type = ["dylib"]` declaration, otherwise no artifacts may be produced. It also depends on the `spirv-std` which version must match that of the `spirv-builder`. 
+* [example-shaders's Cargo.toml](https://github.com/Firestar99/rust-gpu-vulkano-example/blob/master/example-shader/Cargo.toml) must contain the `crate-type = ["dylib"]` declaration, otherwise no artifacts may be produced. It also depends on the `spirv-std` which version must match that of the `spirv-builder`.
 * [the image shader](https://github.com/Firestar99/rust-gpu-vulkano-example/blob/master/example-shader/src/image_shader.rs) can be found in the source of the `example-shader` project and is a direct port of the glsl shaders used in vulkano's image example. If you are looking for how specific in-builds are named or used, I'd recommend searching though [rust-gpu's compile tests](https://github.com/EmbarkStudios/rust-gpu/tree/main/tests/ui) for examples.
