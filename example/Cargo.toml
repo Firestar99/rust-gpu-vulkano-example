@@ -29,4 +29,4 @@ bytemuck = { version = "1.7", features = [
 png = "0.18"
 
 [build-dependencies]
-spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu.git", branch = "main" }
+spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu.git", branch = "main", default-features = false }
